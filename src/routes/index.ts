@@ -1,0 +1,18 @@
+import { Router } from 'express';
+import authRoutes from './auth';
+
+const router = Router();
+
+// 健康检查
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: '服务运行正常',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// API 路由
+router.use('/auth', authRoutes);
+
+export default router; 
