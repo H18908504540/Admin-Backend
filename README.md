@@ -56,6 +56,13 @@ npm start
 - `GET /api/auth/me` - 获取当前用户信息
 - `PUT /api/auth/profile` - 更新用户资料
 
+### 用户管理（需要管理员权限）
+- `GET /api/users` - 获取用户列表（支持分页）
+- `GET /api/users/:id` - 获取用户详情
+- `POST /api/users` - 创建新用户
+- `PUT /api/users/:id` - 更新用户信息
+- `DELETE /api/users/:id` - 删除用户
+
 ### 健康检查
 - `GET /api/health` - 服务健康状态
 
