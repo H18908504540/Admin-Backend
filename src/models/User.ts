@@ -1,69 +1,59 @@
+import { match } from 'assert';
 import mongoose, { Schema, Document } from 'mongoose';
-import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
+  _id: string;
   username: string;
   email: string;
   password: string;
   role: 'admin' | 'user';
-  avatar?: string;
   createdAt: Date;
   updatedAt: Date;
-  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const userSchema: Schema = new Schema({
   username: {
     type: String,
-    required: [true, '用户名不能为空'],
-    unique: true,
+    required: true,
     trim: true,
-    minlength: [2, '用户名至少2个字符'],
-    maxlength: [20, '用户名最多20个字符']
+    minlength: [3, '用户名至少需要3个字符'],
+    maxlength: [20, '用户名最多20个字符'],
+    unique: true,
+    match: [/^[a-zA-Z0-9_]+$/, '用户名只能包含字母、数字和下划线']
   },
   email: {
     type: String,
-    required: [true, '邮箱不能为空'],
-    unique: true,
+    required: true,
     trim: true,
     lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, '请输入有效的邮箱地址']
+    unique: true,
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, '请输入有效的电子邮件地址']
   },
   password: {
     type: String,
     required: [true, '密码不能为空'],
-    minlength: [6, '密码至少6个字符'],
-    select: false
+    minlength: [8, '密码至少需要8个字符'],
+    maxlength: [50, '密码最多50个字符'],
+    select: false, // 查询时默认不返回密码字段
+    validate: {
+      validator: function(password: string) {
+        // 密码强度验证：至少包含一个字母、一个数字
+        return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/.test(password);
+      },
+      message: '密码必须包含至少一个字母和一个数字'
+    }
   },
   role: {
     type: String,
-    enum: ['admin', 'user'],
-    default: 'user'
-  },
-  avatar: {
-    type: String,
-    default: ''
+    enum: {
+      values: ['admin', 'user'],
+      message: '角色只能是 admin 或 user'
+    },
+    default: 'user', // 默认为普通用户
+    required: [true, '用户角色不能为空']
   }
 }, {
   timestamps: true
 });
-
-// 密码加密中间件
-userSchema.pre<IUser>('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error as any);
-  }
-});
-
-// 密码比较方法
-userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
-};
 
 export default mongoose.model<IUser>('User', userSchema); 

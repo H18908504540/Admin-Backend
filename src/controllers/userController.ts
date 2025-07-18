@@ -1,18 +1,18 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import User from '../models/User';
-import { AuthRequest } from '../types';
 import ResponseUtil from '../utils/response';
 
-// 获取用户列表（分页）
-export const getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
+// 获取用户列表（简化版本）
+export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page = 1, limit = 10 } = req.query;
     
     const skip = (Number(page) - 1) * Number(limit);
     
+    // 获取用户列表，不返回密码字段
     const users = await User.find()
-      .select('-password')  // 不返回密码字段
-      .sort({ createdAt: -1 })  // 按创建时间倒序
+      .select('-password')
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));
     
@@ -32,26 +32,8 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
   }
 };
 
-// 获取单个用户详情
-export const getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    
-    const user = await User.findById(id).select('-password');
-    
-    if (!user) {
-      ResponseUtil.notFound(res, '用户不存在');
-      return;
-    }
-    
-    ResponseUtil.success(res, user);
-  } catch (error: any) {
-    ResponseUtil.error(res, error.message);
-  }
-};
-
-// 创建用户
-export const createUser = async (req: AuthRequest, res: Response): Promise<void> => {
+// 创建新用户
+export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, email, password, role } = req.body;
     
@@ -65,11 +47,12 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
     
+    // 创建新用户
     const user = new User({
       username,
       email,
       password,
-      role: role || 'user'
+      role: role || 'user' // 如果没有指定角色，默认为user
     });
     
     await user.save();
@@ -79,53 +62,12 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
     
     ResponseUtil.success(res, userResponse, '用户创建成功');
   } catch (error: any) {
-    ResponseUtil.error(res, error.message);
-  }
-};
-
-// 更新用户
-export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { username, email, role, avatar } = req.body;
-    
-    const user = await User.findByIdAndUpdate(
-      id,
-      { username, email, role, avatar },
-      { new: true, runValidators: true }
-    ).select('-password');
-    
-    if (!user) {
-      ResponseUtil.notFound(res, '用户不存在');
-      return;
+    // 处理Mongoose验证错误
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message);
+      ResponseUtil.badRequest(res, messages.join(', '));
+    } else {
+      ResponseUtil.error(res, error.message);
     }
-    
-    ResponseUtil.success(res, user, '用户更新成功');
-  } catch (error: any) {
-    ResponseUtil.error(res, error.message);
-  }
-};
-
-// 删除用户
-export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    
-    // 不能删除自己
-    if (id === req.user?.id) {
-      ResponseUtil.badRequest(res, '不能删除自己的账户');
-      return;
-    }
-    
-    const user = await User.findByIdAndDelete(id);
-    
-    if (!user) {
-      ResponseUtil.notFound(res, '用户不存在');
-      return;
-    }
-    
-    ResponseUtil.success(res, null, '用户删除成功');
-  } catch (error: any) {
-    ResponseUtil.error(res, error.message);
   }
 }; 
